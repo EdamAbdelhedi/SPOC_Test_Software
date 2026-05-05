@@ -1,0 +1,4 @@
+platformio
+pyserial
+pyvisa
+pyvisa-py
