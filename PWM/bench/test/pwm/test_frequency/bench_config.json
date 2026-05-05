@@ -1,0 +1,19 @@
+{
+  "name": "pwm_frequency",
+  "python": "python",
+  "script": "../Test_SPIN_API/scripts/test_pwm_frequency.py",
+  "args": [
+    { "flag": "--cut-port", "env": "BENCH_CUT_PORT", "default": "COM22" },
+    { "flag": "--mux-port", "env": "BENCH_MUX_PORT", "default": "COM20" },
+    { "flag": "--all-pwm-pins", "env": "BENCH_FREQ_ALL_PWM_PINS", "default": "true" },
+    { "flag": "--cut-pin", "env": "BENCH_FREQ_CUT_PIN", "default": "PA8" },
+    { "flag": "--channel", "env": "BENCH_FREQ_CHANNEL", "default": "ch1" },
+    { "flag": "--freq-values", "env": "BENCH_FREQ_VALUES", "default": ["1000", "5000", "10000"], "multiple": true },
+    { "flag": "--duty", "env": "BENCH_FREQ_DUTY", "default": "0.50" },
+    { "flag": "--settle-seconds", "env": "BENCH_FREQ_SETTLE_SECONDS", "default": "0.1" },
+    { "flag": "--averages", "env": "BENCH_FREQ_AVERAGES", "default": "3" },
+    { "flag": "--trigger-edge-level", "env": "BENCH_FREQ_TRIGGER_EDGE_LEVEL", "default": "1.5" },
+    { "flag": "--timebase-scale", "env": "BENCH_FREQ_TIMEBASE_SCALE" },
+    { "flag": "--freq-tol-pct", "env": "BENCH_FREQ_TOL_PCT", "default": "5.0" }
+  ]
+}
