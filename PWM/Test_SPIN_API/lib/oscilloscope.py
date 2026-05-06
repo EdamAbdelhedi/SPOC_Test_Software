@@ -285,6 +285,12 @@ class Oscilloscope:
     def read_pulse_width(self, channel: int) -> float:
         return self._require_client().measure_item("PWIDth", source_a=f"CHANnel{channel}")
 
+    def read_negative_width(self, channel: int) -> float:
+        return self._require_client().measure_item("NWIDth", source_a=f"CHANnel{channel}")
+
+    def read_negative_width_max(self, channel: int) -> float:
+        return self.read_statistic("NWIDth", channel, result_type="MAXimum")
+
     def read_period(self, channel: int) -> float:
         return self._require_client().measure_item("PERiod", source_a=f"CHANnel{channel}")
 

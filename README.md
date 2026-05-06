@@ -43,7 +43,6 @@ Laptop checks the measurement
 Recommended installation:
 
 ```powershell
-cd .\Tests
 python -m pip install -r requirements.txt
 ```
 

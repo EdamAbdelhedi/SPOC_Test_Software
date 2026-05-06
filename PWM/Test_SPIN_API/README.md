@@ -1,13 +1,13 @@
 # Test SPIN API PWM
 
-Ce dossier contient les scripts Python de verification PWM pour le SPIN.
+This folder contains the Python PWM verification scripts for SPIN.
 
-Contenu :
-- `scripts/` : scripts de test PWM
-- `lib/` : classes partagees pour piloter le CUT, le MUX et l'oscilloscope
-- `PWM_Architecture.md` : vue d'ensemble de l'architecture des tests
+Contents:
+- `scripts/`: PWM test scripts
+- `lib/`: shared classes used to control the CUT, the MUX, and the oscilloscope
+- `PWM_Architecture.md`: overview of the test architecture
 
-Suites disponibles :
+Available suites:
 - `test_pwm_burst_mode.py`
 - `test_pwm_dead_time.py`
 - `test_pwm_duty_cycle.py`
@@ -15,24 +15,36 @@ Suites disponibles :
 - `test_pwm_phase_shift.py`
 - `test_pwm_rise_fall.py`
 
-Chaque script utilise les classes de `lib/` :
+Each script uses the classes from `lib/`:
 - `cut_pwm.py`
 - `mux_controller.py`
 - `oscilloscope.py`
 - `thingset.py`
 
-Pre-requis materiels :
-- une carte CUT accessible sur un port serie
-- une carte MUX accessible sur un port serie
-- un oscilloscope Rigol accessible via VISA
+Hardware requirements:
+- a CUT board available on a serial port
+- a MUX board available on a serial port
+- a Rigol oscilloscope available through VISA
 
-Lancement direct d'un script :
+Install Python dependencies before running scripts directly:
+
+```powershell
+python -m pip install -r ..\..\requirements.txt
+```
+
+Run a script directly:
 
 ```powershell
 python .\scripts\test_pwm_duty_cycle.py --cut-port COM22 --mux-port COM20 --cut-pin PA8 --channel ch1 --freq 1000 --duty-values 0.20 0.70
 ```
 
-Lancement automatise via bench PlatformIO :
+Burst mode example on a single pin:
+
+```powershell
+python .\scripts\test_pwm_burst_mode.py --cut-port COM22 --mux-port COM20 --all-pwm-pins false --cut-pin PA8 --channel ch2 --freq 1000 --duty 0.50 --burst-off-cycles 7 --burst-total-cycles 10
+```
+
+Automated run through the PlatformIO bench:
 
 ```powershell
 cd ..\bench
@@ -40,7 +52,7 @@ $env:BENCH_CUT_PORT = "COM22"
 $env:BENCH_MUX_PORT = "COM20"
 ```
 
-Commandes disponibles :
+Available commands:
 
 ```powershell
 pio test -e bench -f pwm/test_duty_cycle
@@ -51,10 +63,18 @@ pio test -e bench -f pwm/test_phase_shift
 pio test -e bench -f pwm/test_burst_mode
 ```
 
-Si `pio` n'est pas disponible dans le `PATH`, utilise :
+To run burst mode on a single pin through the bench:
+
+```powershell
+$env:BENCH_BURST_ALL_PWM_PINS = "false"
+$env:BENCH_BURST_CUT_PIN = "PA8"
+pio test -e bench -f pwm/test_burst_mode
+```
+
+If `pio` is not available in `PATH`, use:
 
 ```powershell
 py -m platformio test -e bench -f pwm/test_frequency
 ```
 
-Le detail des variables d'environnement bench est documente dans le dossier voisin `../bench`.
+The bench environment variables are documented in the neighboring `../bench` folder.

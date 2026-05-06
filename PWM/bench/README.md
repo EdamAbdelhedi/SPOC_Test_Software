@@ -56,7 +56,7 @@ $env:BENCH_MUX_PORT="COMyy"
 Run commands from this folder:
 
 ```powershell
-cd C:\PFEOwnTech\SPIN-Oscilloscope-Shield\Core\Tests\PWM\bench
+cd C:\PFEOwnTech\SPOC_Test_Software\PWM\bench
 pio test -e bench -f pwm/test_frequency
 ```
 

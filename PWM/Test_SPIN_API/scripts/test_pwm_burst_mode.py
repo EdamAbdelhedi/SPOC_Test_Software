@@ -71,12 +71,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def default_burst_timebase(freq_hz: int, burst_per: int) -> float:
-    burst_period_s = burst_per / max(float(freq_hz), 1.0)
-    return max(burst_period_s / 2.5, 1e-6)
+    return max(5.0 / max(float(freq_hz), 1.0), 1e-6)
 
 
-def default_carrier_timebase(freq_hz: int) -> float:
-    return max(10.0 / max(freq_hz * 2.5, 1.0), 1e-6)
+def default_carrier_timebase(freq_hz: int, burst_per: int) -> float:
+    return default_burst_timebase(freq_hz, burst_per)
 
 
 def normalize_cut_pin(cut_pin: str) -> str:
@@ -112,14 +111,6 @@ def pct_error(measured: float, expected: float) -> float:
     if expected == 0:
         return 0.0 if abs(measured) < 1e-12 else float("inf")
     return abs(measured - expected) / abs(expected) * 100.0
-
-
-def find_burst_starts(rising_edges_s: list[float], min_burst_gap_s: float) -> list[float]:
-    burst_starts_s = [rising_edges_s[0]]
-    for edge_s in rising_edges_s[1:]:
-        if edge_s - burst_starts_s[-1] >= min_burst_gap_s:
-            burst_starts_s.append(edge_s)
-    return burst_starts_s
 
 
 def prepare_scope(
@@ -160,40 +151,12 @@ def average_valid_measurements(
     return sum(values) / len(values)
 
 
-def measure_burst_period_from_waveform(
-    scope: Oscilloscope,
-    scope_channel: int,
-    *,
-    carrier_period_s: float,
-    expected_burst_period_s: float,
-    threshold_volts: float,
-) -> tuple[float | None, list[float], int]:
-    scope.stop()
-    x_increment_s, voltages = scope.read_waveform_ascii(scope_channel, points=1000)
-    if len(voltages) < 2:
-        return None, [], len(voltages)
-
-    rising_edges_s: list[float] = []
-    was_high = voltages[0] >= threshold_volts
-    for index, voltage in enumerate(voltages[1:], start=1):
-        is_high = voltage >= threshold_volts
-        if is_high and not was_high:
-            rising_edges_s.append(index * x_increment_s)
-        was_high = is_high
-
-    if not rising_edges_s:
-        return None, [], len(voltages)
-
-    min_burst_gap_s = max(carrier_period_s * 2.0, expected_burst_period_s * 0.5)
-    burst_start_edges_s = find_burst_starts(rising_edges_s, min_burst_gap_s)
-
-    burst_periods_s = [
-        current - previous
-        for previous, current in zip(burst_start_edges_s, burst_start_edges_s[1:])
-    ]
-    if not burst_periods_s:
-        return None, burst_start_edges_s, len(voltages)
-    return sum(burst_periods_s) / len(burst_periods_s), burst_start_edges_s, len(voltages)
+def calculate_burst_active_pulses_time_s(*, pulse_count: int, duty: float, period_s: float) -> float:
+    if pulse_count <= 0:
+        return 0.0
+    high_time_s = pulse_count * duty * period_s
+    inter_pulse_low_time_s = (pulse_count - 1) * (1.0 - duty) * period_s
+    return high_time_s + inter_pulse_low_time_s
 
 
 def print_route_diagnostics(cut: CutPwmController, mux: MuxController, channel: str, cut_pin: str) -> None:
@@ -295,7 +258,7 @@ def measure_burst_case(
     prepare_scope(
         scope,
         scope_channel,
-        timebase_scale=default_carrier_timebase(applied_freq_hz),
+        timebase_scale=default_carrier_timebase(applied_freq_hz, burst_per),
         trigger_edge_level=trigger_edge_level,
     )
     time.sleep(max(settle_seconds, 0.0))
@@ -309,6 +272,25 @@ def measure_burst_case(
         averages=averages,
         settle_seconds=max(settle_seconds / 2.0, 0.1),
     )
+    measured_period_s = average_valid_measurements(
+        lambda: scope.read_period(scope_channel),
+        averages=averages,
+        settle_seconds=max(settle_seconds / 2.0, 0.1),
+    )
+
+    print("\nPre-burst checks")
+    pre_burst_passed = check_pwm_measurement(
+        label="normal PWM before burst",
+        measured_freq_hz=measured_freq_hz,
+        measured_duty_pct=measured_duty_pct,
+        expected_freq_hz=applied_freq_hz,
+        expected_duty_pct=expected_duty_pct,
+        freq_tol_pct=freq_tol_pct,
+        duty_tol_pct=duty_tol_pct,
+    )
+    if not pre_burst_passed:
+        print("\nOverall: FAIL")
+        return False
 
     cut.init_burst_mode(cut_pin)
     cut.configure_burst_mode(cut_pin, bm_cmp=burst_cmp, bm_per=burst_per)
@@ -327,50 +309,67 @@ def measure_burst_case(
     burst_settle_seconds = max(settle_seconds, expected_burst_period_nominal_s * 2.0, 0.1)
     time.sleep(burst_settle_seconds)
     scope.clear_measurements()
-    measured_burst_period_s, burst_start_edges_s, burst_waveform_points = measure_burst_period_from_waveform(
-        scope,
-        scope_channel,
-        carrier_period_s=carrier_period_s,
-        expected_burst_period_s=expected_burst_period_nominal_s,
-        threshold_volts=trigger_edge_level,
+    scope.reset_statistics()
+    time.sleep(max(settle_seconds, expected_burst_period_nominal_s * 10.0, 0.1))
+    measured_burst_off_width_s = average_valid_measurements(
+        lambda: scope.read_negative_width_max(scope_channel),
+        averages=averages,
+        settle_seconds=max(expected_burst_period_nominal_s * 2.0, settle_seconds / 2.0, 0.1),
     )
-    cut.stop_burst_mode(cut_pin)
+
+    measured_duty_fraction = (
+        measured_duty_pct / 100.0
+        if measured_duty_pct is not None
+        else applied_duty
+    )
+    measured_carrier_period_s = (
+        measured_period_s
+        if measured_period_s is not None
+        else carrier_period_s
+    )
+    calculated_active_pulses_s = calculate_burst_active_pulses_time_s(
+        pulse_count=active_cycles,
+        duty=measured_duty_fraction,
+        period_s=measured_carrier_period_s,
+    )
+    expected_off_width_s = expected_burst_period_nominal_s - calculated_active_pulses_s
+    measured_burst_period_s = (
+        calculated_active_pulses_s + measured_burst_off_width_s
+        if measured_burst_off_width_s is not None
+        else None
+    )
 
     passed = True
-    print("\nChecks")
-
-    passed &= check_pwm_measurement(
-        label="before burst",
-        measured_freq_hz=measured_freq_hz,
-        measured_duty_pct=measured_duty_pct,
-        expected_freq_hz=applied_freq_hz,
-        expected_duty_pct=expected_duty_pct,
-        freq_tol_pct=freq_tol_pct,
-        duty_tol_pct=duty_tol_pct,
-    )
+    print("\nBurst checks")
 
     if measured_burst_period_s is None:
-        burst_edges_ms = ", ".join(f"{edge * 1e3:.2f}" for edge in burst_start_edges_s)
-        print(f"burst waveform: points={burst_waveform_points}, detected burst starts=[{burst_edges_ms}] ms")
-        print("burst: measurement invalid | FAIL")
+        print(
+            "burst timing: "
+            f"active pulses calculated={calculated_active_pulses_s * 1e3:.2f} ms | "
+            f"expected -Width={expected_off_width_s * 1e3:.2f} ms | "
+            "scope MAX -Width invalid | FAIL"
+        )
         passed = False
     else:
-        burst_edges_ms = ", ".join(f"{edge * 1e3:.2f}" for edge in burst_start_edges_s)
         burst_err_pct = pct_error(measured_burst_period_s, expected_burst_period_nominal_s)
+        off_width_err_pct = pct_error(measured_burst_off_width_s, expected_off_width_s)
         burst_period_passed = burst_err_pct <= burst_period_tol_pct
         burst_active_passed = measured_burst_period_s > carrier_period_s
         burst_passed = burst_period_passed and burst_active_passed
-        print(f"burst waveform: points={burst_waveform_points}, detected burst starts=[{burst_edges_ms}] ms")
         print(
-            f"burst: measured period={measured_burst_period_s * 1e3:.2f} ms | "
-            f"carrier period={carrier_period_s * 1e3:.2f} ms | "
-            f"{'PASS' if burst_active_passed else 'FAIL'}"
+            "burst timing: "
+            f"n={active_cycles}, D={measured_duty_fraction:.4f}, T={measured_carrier_period_s * 1e3:.4f} ms | "
+            f"active pulses={calculated_active_pulses_s * 1e3:.2f} ms | "
+            f"expected -Width={expected_off_width_s * 1e3:.2f} ms | "
+            f"scope MAX -Width={measured_burst_off_width_s * 1e3:.2f} ms | "
+            f"-Width error={off_width_err_pct:.2f}%"
         )
         print(
-            f"burst info: nominal period={expected_burst_period_nominal_s * 1e3:.2f} ms | "
+            f"burst: nominal period={expected_burst_period_nominal_s * 1e3:.2f} ms | "
             f"measured={measured_burst_period_s * 1e3:.2f} ms | "
+            f"carrier period={carrier_period_s * 1e3:.2f} ms | "
             f"error={burst_err_pct:.2f}% | tolerance={burst_period_tol_pct:.2f}% | "
-            f"{'PASS' if burst_period_passed else 'FAIL'}"
+            f"{'PASS' if burst_period_passed and burst_active_passed else 'FAIL'}"
         )
         passed &= burst_passed
 
