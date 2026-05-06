@@ -177,26 +177,30 @@ def print_route_diagnostics(cut: CutPwmController, mux: MuxController, channel: 
 def check_pwm_measurement(
     *,
     label: str,
-    measured_freq_hz: float | None,
+    measured_period_s: float | None,
     measured_duty_pct: float | None,
-    expected_freq_hz: int,
+    expected_period_s: float,
     expected_duty_pct: float,
-    freq_tol_pct: float,
+    period_tol_pct: float,
     duty_tol_pct: float,
 ) -> bool:
     passed = True
 
-    if measured_freq_hz is None:
-        print(f"{label}: frequency invalid | FAIL")
+    if measured_period_s is None:
+        print(f"{label}: period invalid | FAIL")
         passed = False
     else:
-        freq_err_pct = pct_error(measured_freq_hz, expected_freq_hz)
-        freq_passed = freq_err_pct <= freq_tol_pct
+        period_err_pct = pct_error(measured_period_s, expected_period_s)
+        period_passed = period_err_pct <= period_tol_pct
+        measured_freq_hz = 1.0 / measured_period_s if measured_period_s > 0 else float("inf")
+        expected_freq_hz = 1.0 / expected_period_s if expected_period_s > 0 else float("inf")
         print(
-            f"{label}: freq expected={expected_freq_hz:.2f} Hz | measured={measured_freq_hz:.2f} Hz | "
-            f"error={freq_err_pct:.2f}% | {'PASS' if freq_passed else 'FAIL'}"
+            f"{label}: period expected={expected_period_s * 1e3:.4f} ms | "
+            f"measured={measured_period_s * 1e3:.4f} ms | "
+            f"freq expected={expected_freq_hz:.2f} Hz | measured={measured_freq_hz:.2f} Hz | "
+            f"error={period_err_pct:.2f}% | {'PASS' if period_passed else 'FAIL'}"
         )
-        passed &= freq_passed
+        passed &= period_passed
 
     if measured_duty_pct is None:
         print(f"{label}: duty invalid | FAIL")
@@ -262,11 +266,6 @@ def measure_burst_case(
         trigger_edge_level=trigger_edge_level,
     )
     time.sleep(max(settle_seconds, 0.0))
-    measured_freq_hz = average_valid_measurements(
-        lambda: scope.read_frequency(scope_channel),
-        averages=averages,
-        settle_seconds=max(settle_seconds / 2.0, 0.1),
-    )
     measured_duty_pct = average_valid_measurements(
         lambda: normalize_duty_percent(scope.read_duty_cycle(scope_channel)),
         averages=averages,
@@ -281,11 +280,11 @@ def measure_burst_case(
     print("\nPre-burst checks")
     pre_burst_passed = check_pwm_measurement(
         label="normal PWM before burst",
-        measured_freq_hz=measured_freq_hz,
+        measured_period_s=measured_period_s,
         measured_duty_pct=measured_duty_pct,
-        expected_freq_hz=applied_freq_hz,
+        expected_period_s=carrier_period_s,
         expected_duty_pct=expected_duty_pct,
-        freq_tol_pct=freq_tol_pct,
+        period_tol_pct=freq_tol_pct,
         duty_tol_pct=duty_tol_pct,
     )
     if not pre_burst_passed:
