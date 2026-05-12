@@ -49,7 +49,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--averages", type=int, default=3, help="Number of duty measurements to average")
     parser.add_argument("--trigger-edge-level", type=float, default=1.5, help="Rigol TRIGger:EDGE:LEVel in volts")
     parser.add_argument("--timebase-scale", type=float, help="Rigol timebase scale in seconds/div")
-    parser.add_argument("--duty-tol-pct", type=float, default=1.0, help="Allowed duty error in percent")
+    parser.add_argument(
+        "--duty-tol-pct",
+        type=float,
+        default=1.0,
+        help="Allowed absolute duty error in percent",
+    )
     return parser
 
 
@@ -137,10 +142,8 @@ def try_average_duty(scope: Oscilloscope, scope_channel: int, averages: int, set
     return sum(values) / len(values)
 
 
-def pct_error(measured: float, expected: float) -> float:
-    if expected == 0:
-        return 0.0 if abs(measured) < 1e-12 else float("inf")
-    return abs(measured - expected) / abs(expected) * 100.0
+def duty_error_percent(measured: float, expected: float) -> float:
+    return abs(measured - expected)
 
 
 def measure_duty_step(
@@ -165,7 +168,7 @@ def measure_duty_step(
         print("duty measurement failed: the oscilloscope could not extract a valid duty cycle")
         return False
 
-    error_pct = pct_error(measured_duty, expected_pin_duty)
+    error_pct = duty_error_percent(measured_duty, expected_pin_duty)
     passed = error_pct <= duty_tol_pct
 
     print(
