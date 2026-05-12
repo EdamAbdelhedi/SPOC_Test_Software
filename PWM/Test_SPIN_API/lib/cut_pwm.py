@@ -40,12 +40,12 @@ PHASE_MIN_DEG = -180
 PHASE_MAX_DEG = 180
 PWM_UNITS = ("A", "B", "C", "D", "E", "F")
 PWM_FIELDS = {
-    "A": {"out1": "wA1", "out2": "wA2", "duty": "wADuty", "phase": "wAPhase_deg", "dead_rise": "wADeadRise", "dead_fall": "wADeadFall"},
-    "B": {"out1": "wB1", "out2": None, "duty": "wBDuty", "phase": "wBPhase_deg", "dead_rise": "wBDeadRise", "dead_fall": "wBDeadFall"},
-    "C": {"out1": "wC1", "out2": "wC2", "duty": "wCDuty", "phase": "wCPhase_deg", "dead_rise": "wCDeadRise", "dead_fall": "wCDeadFall"},
-    "D": {"out1": "wD1", "out2": "wD2", "duty": "wDDuty", "phase": "wDPhase_deg", "dead_rise": "wDDeadRise", "dead_fall": "wDDeadFall"},
-    "E": {"out1": "wE1", "out2": "wE2", "duty": "wEDuty", "phase": "wEPhase_deg", "dead_rise": "wEDeadRise", "dead_fall": "wEDeadFall"},
-    "F": {"out1": "wF1", "out2": "wF2", "duty": "wFDuty", "phase": "wFPhase_deg", "dead_rise": "wFDeadRise", "dead_fall": "wFDeadFall"},
+    "A": {"out1": "wA1", "out2": "wA2", "duty": "wADuty", "phase": "wAPhase_deg", "dead_rise": "wADeadRise", "dead_fall": "wADeadFall", "mod": "wAMod", "period": "rAPeriod"},
+    "B": {"out1": "wB1", "out2": None, "duty": "wBDuty", "phase": "wBPhase_deg", "dead_rise": "wBDeadRise", "dead_fall": "wBDeadFall", "mod": "wBMod", "period": "rBPeriod"},
+    "C": {"out1": "wC1", "out2": "wC2", "duty": "wCDuty", "phase": "wCPhase_deg", "dead_rise": "wCDeadRise", "dead_fall": "wCDeadFall", "mod": "wCMod", "period": "rCPeriod"},
+    "D": {"out1": "wD1", "out2": "wD2", "duty": "wDDuty", "phase": "wDPhase_deg", "dead_rise": "wDDeadRise", "dead_fall": "wDDeadFall", "mod": "wDMod", "period": "rDPeriod"},
+    "E": {"out1": "wE1", "out2": "wE2", "duty": "wEDuty", "phase": "wEPhase_deg", "dead_rise": "wEDeadRise", "dead_fall": "wEDeadFall", "mod": "wEMod", "period": "rEPeriod"},
+    "F": {"out1": "wF1", "out2": "wF2", "duty": "wFDuty", "phase": "wFPhase_deg", "dead_rise": "wFDeadRise", "dead_fall": "wFDeadFall", "mod": "wFMod", "period": "rFPeriod"},
 }
 PWM_SOURCES = {
     "PA8": {"unit": "A", "output": 1, "tu": 0},
@@ -440,6 +440,12 @@ class CutPwmController:
             status=self._to_int(self._ts_get(shell, f"{CUT_PWM_BASE}/rStatus")),
         )
 
+    def read_period(self, pin: str) -> int | None:
+        shell = self._require_shell()
+        target = self._resolve_pin(pin)
+        unit_fields = PWM_FIELDS[str(target["unit"])]
+        return self._to_int(self._ts_get(shell, f"{CUT_PWM_BASE}/{unit_fields['period']}"))
+
     def _resolve_pin(self, pin: str) -> dict[str, int | str]:
         normalized = pin.strip().upper()
         if normalized not in PWM_SOURCES:
@@ -526,6 +532,7 @@ class CutPwmController:
             self._ts_set(shell, f"{CUT_PWM_BASE}/{unit_fields['phase']}", unit_plan["phase_deg"])
             self._ts_set(shell, f"{CUT_PWM_BASE}/{unit_fields['dead_rise']}", unit_plan["dead_rise_ns"])
             self._ts_set(shell, f"{CUT_PWM_BASE}/{unit_fields['dead_fall']}", unit_plan["dead_fall_ns"])
+            self._ts_set(shell, f"{CUT_PWM_BASE}/{unit_fields['mod']}", command.modulation)
 
         self._ts_set(shell, f"{CUT_PWM_BASE}/wEnable", enable)
         self._ts_set(shell, f"{CUT_PWM_BASE}/xApply", True)

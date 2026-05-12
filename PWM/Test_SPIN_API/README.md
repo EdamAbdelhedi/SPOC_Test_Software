@@ -12,6 +12,7 @@ Available suites:
 - `test_pwm_dead_time.py`
 - `test_pwm_duty_cycle.py`
 - `test_pwm_frequency.py`
+- `test_pwm_modulation_modes.py`
 - `test_pwm_phase_shift.py`
 - `test_pwm_rise_fall.py`
 
@@ -61,6 +62,7 @@ pio test -e bench -f pwm/test_rise_fall
 pio test -e bench -f pwm/test_dead_time
 pio test -e bench -f pwm/test_phase_shift
 pio test -e bench -f pwm/test_burst_mode
+pio test -e bench -f pwm/test_modulation_modes
 ```
 
 To run burst mode on a single pin through the bench:

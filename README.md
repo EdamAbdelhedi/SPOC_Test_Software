@@ -70,6 +70,7 @@ pio test -e bench -f pwm/test_rise_fall
 pio test -e bench -f pwm/test_dead_time
 pio test -e bench -f pwm/test_phase_shift
 pio test -e bench -f pwm/test_burst_mode
+pio test -e bench -f pwm/test_modulation_modes
 ```
 
 If `pio` is not available in `PATH`, use:

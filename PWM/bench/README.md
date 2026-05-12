@@ -19,6 +19,7 @@ bench/
       test_dead_time/
       test_duty_cycle/
       test_frequency/
+      test_modulation_modes/
       test_phase_shift/
       test_rise_fall/
 ```
@@ -69,4 +70,5 @@ pio test -e bench -f pwm/test_rise_fall
 pio test -e bench -f pwm/test_dead_time
 pio test -e bench -f pwm/test_phase_shift
 pio test -e bench -f pwm/test_burst_mode
+pio test -e bench -f pwm/test_modulation_modes
 ```
