@@ -32,20 +32,23 @@ PWM_ACT_DEINIT_BURST = 27
 
 LFT_ALIGNED = 0
 UPDWN = 16
+PWMX1 = 0
+PWMX2 = 1
 DEFAULT_PWM_FREQUENCY_HZ = 100000
 DEFAULT_PWM_MODULATION = UPDWN
+DEFAULT_SWITCH_CONVENTION = PWMX1
 DUTY_MIN = 0.0
 DUTY_MAX = 1.0
 PHASE_MIN_DEG = -180
 PHASE_MAX_DEG = 180
 PWM_UNITS = ("A", "B", "C", "D", "E", "F")
 PWM_FIELDS = {
-    "A": {"out1": "wA1", "out2": "wA2", "duty": "wADuty", "phase": "wAPhase_deg", "dead_rise": "wADeadRise", "dead_fall": "wADeadFall", "mod": "wAMod", "period": "rAPeriod"},
-    "B": {"out1": "wB1", "out2": None, "duty": "wBDuty", "phase": "wBPhase_deg", "dead_rise": "wBDeadRise", "dead_fall": "wBDeadFall", "mod": "wBMod", "period": "rBPeriod"},
-    "C": {"out1": "wC1", "out2": "wC2", "duty": "wCDuty", "phase": "wCPhase_deg", "dead_rise": "wCDeadRise", "dead_fall": "wCDeadFall", "mod": "wCMod", "period": "rCPeriod"},
-    "D": {"out1": "wD1", "out2": "wD2", "duty": "wDDuty", "phase": "wDPhase_deg", "dead_rise": "wDDeadRise", "dead_fall": "wDDeadFall", "mod": "wDMod", "period": "rDPeriod"},
-    "E": {"out1": "wE1", "out2": "wE2", "duty": "wEDuty", "phase": "wEPhase_deg", "dead_rise": "wEDeadRise", "dead_fall": "wEDeadFall", "mod": "wEMod", "period": "rEPeriod"},
-    "F": {"out1": "wF1", "out2": "wF2", "duty": "wFDuty", "phase": "wFPhase_deg", "dead_rise": "wFDeadRise", "dead_fall": "wFDeadFall", "mod": "wFMod", "period": "rFPeriod"},
+    "A": {"out1": "wA1", "out2": "wA2", "duty": "wADuty", "phase": "wAPhase_deg", "dead_rise": "wADeadRise", "dead_fall": "wADeadFall", "mod": "wAMod", "switch": "wASwitchConv", "period": "rAPeriod"},
+    "B": {"out1": "wB1", "out2": None, "duty": "wBDuty", "phase": "wBPhase_deg", "dead_rise": "wBDeadRise", "dead_fall": "wBDeadFall", "mod": "wBMod", "switch": "wBSwitchConv", "period": "rBPeriod"},
+    "C": {"out1": "wC1", "out2": "wC2", "duty": "wCDuty", "phase": "wCPhase_deg", "dead_rise": "wCDeadRise", "dead_fall": "wCDeadFall", "mod": "wCMod", "switch": "wCSwitchConv", "period": "rCPeriod"},
+    "D": {"out1": "wD1", "out2": "wD2", "duty": "wDDuty", "phase": "wDPhase_deg", "dead_rise": "wDDeadRise", "dead_fall": "wDDeadFall", "mod": "wDMod", "switch": "wDSwitchConv", "period": "rDPeriod"},
+    "E": {"out1": "wE1", "out2": "wE2", "duty": "wEDuty", "phase": "wEPhase_deg", "dead_rise": "wEDeadRise", "dead_fall": "wEDeadFall", "mod": "wEMod", "switch": "wESwitchConv", "period": "rEPeriod"},
+    "F": {"out1": "wF1", "out2": "wF2", "duty": "wFDuty", "phase": "wFPhase_deg", "dead_rise": "wFDeadRise", "dead_fall": "wFDeadFall", "mod": "wFMod", "switch": "wFSwitchConv", "period": "rFPeriod"},
 }
 PWM_SOURCES = {
     "PA8": {"unit": "A", "output": 1, "tu": 0},
@@ -78,6 +81,7 @@ class PwmCommandValues:
     dead_rise_ns: int
     dead_fall_ns: int
     modulation: int
+    switch_convention: int
 
 
 def clamp_pwm_duty(duty: float) -> float:
@@ -98,6 +102,22 @@ def expected_pwm_pin_duty_percent(pin: str, command_duty: float) -> float:
     if is_pwm_pin_complementary(pin):
         return 100.0 - primary_duty
     return primary_duty
+
+
+def resolve_switch_convention(convention: int | str | None) -> int:
+    if convention is None:
+        return DEFAULT_SWITCH_CONVENTION
+    if isinstance(convention, str):
+        normalized = convention.strip().upper()
+        if normalized in {"PWMX1", "PWM1", "0"}:
+            return PWMX1
+        if normalized in {"PWMX2", "PWM2", "1"}:
+            return PWMX2
+        raise ValueError("switch_convention must be PWMx1 or PWMx2")
+    value = int(convention)
+    if value not in (PWMX1, PWMX2):
+        raise ValueError("switch_convention must be 0 (PWMx1) or 1 (PWMx2)")
+    return value
 
 
 def clamp_pwm_phase_deg(phase_deg: int | float) -> int:
@@ -199,6 +219,7 @@ class CutPwmController:
         dead_rise_ns: int = 0,
         dead_fall_ns: int = 0,
         modulation: int | None = None,
+        switch_convention: int | str | None = None,
     ) -> PwmCommandValues:
         target = self._resolve_pin(pin)
         return self.set_pwm_raw(
@@ -212,6 +233,7 @@ class CutPwmController:
             dead_rise_ns=dead_rise_ns,
             dead_fall_ns=dead_fall_ns,
             modulation=modulation,
+            switch_convention=switch_convention,
         )
 
     def set_pwm_raw(
@@ -227,6 +249,7 @@ class CutPwmController:
         dead_rise_ns: int = 0,
         dead_fall_ns: int = 0,
         modulation: int | None = None,
+        switch_convention: int | str | None = None,
     ) -> PwmCommandValues:
         shell = self._require_shell()
         command = self._prepare_pwm_args(
@@ -237,6 +260,7 @@ class CutPwmController:
             dead_rise_ns=dead_rise_ns,
             dead_fall_ns=dead_fall_ns,
             modulation=modulation,
+            switch_convention=switch_convention,
         )
         resolved_unit, resolved_output = self._resolve_unit_output(unit, output)
         plan = self._empty_pwm_plan()
@@ -245,6 +269,7 @@ class CutPwmController:
         unit_plan["phase_deg"] = command.phase_deg
         unit_plan["dead_rise_ns"] = command.dead_rise_ns
         unit_plan["dead_fall_ns"] = command.dead_fall_ns
+        unit_plan["switch_convention"] = command.switch_convention
         unit_plan[f"out{resolved_output}"] = True
         self._apply_pwm_plan(shell, plan, command, enable)
         return command
@@ -262,6 +287,7 @@ class CutPwmController:
         dead_rise_ns: int = 0,
         dead_fall_ns: int = 0,
         modulation: int | None = None,
+        switch_convention: int | str | None = None,
     ) -> PwmCommandValues:
         first = self._resolve_pin(pin_a)
         second = self._resolve_pin(pin_b)
@@ -278,6 +304,7 @@ class CutPwmController:
             dead_rise_ns=dead_rise_ns,
             dead_fall_ns=dead_fall_ns,
             modulation=modulation,
+            switch_convention=switch_convention,
         )
 
     def set_pwm_pair_raw(
@@ -295,6 +322,7 @@ class CutPwmController:
         dead_rise_ns: int = 0,
         dead_fall_ns: int = 0,
         modulation: int | None = None,
+        switch_convention: int | str | None = None,
     ) -> PwmCommandValues:
         shell = self._require_shell()
         command = self._prepare_pwm_args(
@@ -305,6 +333,7 @@ class CutPwmController:
             dead_rise_ns=dead_rise_ns,
             dead_fall_ns=dead_fall_ns,
             modulation=modulation,
+            switch_convention=switch_convention,
         )
         resolved_unit_a, resolved_output_a = self._resolve_unit_output(unit_a, output_a)
         resolved_unit_b, resolved_output_b = self._resolve_unit_output(unit_b, output_b)
@@ -319,6 +348,7 @@ class CutPwmController:
         unit_a_plan["phase_deg"] = 0
         unit_a_plan["dead_rise_ns"] = command.dead_rise_ns
         unit_a_plan["dead_fall_ns"] = command.dead_fall_ns
+        unit_a_plan["switch_convention"] = command.switch_convention
         unit_a_plan[f"out{resolved_output_a}"] = True
 
         unit_b_plan = plan[resolved_unit_b]
@@ -326,6 +356,7 @@ class CutPwmController:
         unit_b_plan["phase_deg"] = command.phase_deg if resolved_unit_b != resolved_unit_a else 0
         unit_b_plan["dead_rise_ns"] = command.dead_rise_ns
         unit_b_plan["dead_fall_ns"] = command.dead_fall_ns
+        unit_b_plan["switch_convention"] = command.switch_convention
         unit_b_plan[f"out{resolved_output_b}"] = True
 
         self._apply_pwm_plan(shell, plan, command, enable)
@@ -342,6 +373,7 @@ class CutPwmController:
         dead_rise_ns: int = 0,
         dead_fall_ns: int = 0,
         modulation: int | None = None,
+        switch_convention: int | str | None = None,
     ) -> PwmCommandValues:
         return self.set_pwm(
             pin=pin,
@@ -353,6 +385,7 @@ class CutPwmController:
             dead_rise_ns=dead_rise_ns,
             dead_fall_ns=dead_fall_ns,
             modulation=modulation,
+            switch_convention=switch_convention,
         )
 
     def disable_pair(
@@ -367,6 +400,7 @@ class CutPwmController:
         dead_rise_ns: int = 0,
         dead_fall_ns: int = 0,
         modulation: int | None = None,
+        switch_convention: int | str | None = None,
     ) -> PwmCommandValues:
         return self.set_pwm_pair(
             pin_a=pin_a,
@@ -379,6 +413,7 @@ class CutPwmController:
             dead_rise_ns=dead_rise_ns,
             dead_fall_ns=dead_fall_ns,
             modulation=modulation,
+            switch_convention=switch_convention,
         )
 
     def init_burst_mode(self, pin: str) -> None:
@@ -473,12 +508,14 @@ class CutPwmController:
         dead_rise_ns: int,
         dead_fall_ns: int,
         modulation: int | None,
+        switch_convention: int | str | None,
     ) -> PwmCommandValues:
         applied_freq_hz = resolve_pwm_frequency_hz(freq_hz)
         min_freq_value = resolve_pwm_min_frequency_hz(min_freq_hz, applied_freq_hz)
         applied_duty = clamp_pwm_duty(duty)
         applied_phase_deg = clamp_pwm_phase_deg(phase_deg)
         applied_modulation = DEFAULT_PWM_MODULATION if modulation is None else int(modulation)
+        applied_switch_convention = resolve_switch_convention(switch_convention)
         self._report_clamp("freq_hz", freq_hz, applied_freq_hz)
         if min_freq_hz is not None:
             self._report_clamp("min_freq_hz", min_freq_hz, min_freq_value)
@@ -496,6 +533,7 @@ class CutPwmController:
             dead_rise_ns=dead_rise_ns,
             dead_fall_ns=dead_fall_ns,
             modulation=applied_modulation,
+            switch_convention=applied_switch_convention,
         )
 
     def _empty_pwm_plan(self) -> dict[str, dict[str, int | float | bool]]:
@@ -507,6 +545,7 @@ class CutPwmController:
                 "phase_deg": 0,
                 "dead_rise_ns": 0,
                 "dead_fall_ns": 0,
+                "switch_convention": DEFAULT_SWITCH_CONVENTION,
             }
             for unit in PWM_UNITS
         }
@@ -533,6 +572,7 @@ class CutPwmController:
             self._ts_set(shell, f"{CUT_PWM_BASE}/{unit_fields['dead_rise']}", unit_plan["dead_rise_ns"])
             self._ts_set(shell, f"{CUT_PWM_BASE}/{unit_fields['dead_fall']}", unit_plan["dead_fall_ns"])
             self._ts_set(shell, f"{CUT_PWM_BASE}/{unit_fields['mod']}", command.modulation)
+            self._ts_set(shell, f"{CUT_PWM_BASE}/{unit_fields['switch']}", unit_plan["switch_convention"])
 
         self._ts_set(shell, f"{CUT_PWM_BASE}/wEnable", enable)
         self._ts_set(shell, f"{CUT_PWM_BASE}/xApply", True)

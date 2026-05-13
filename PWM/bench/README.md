@@ -22,6 +22,7 @@ bench/
       test_modulation_modes/
       test_phase_shift/
       test_rise_fall/
+      test_switch_convention/
 ```
 
 ## Before Running Tests
@@ -71,4 +72,5 @@ pio test -e bench -f pwm/test_dead_time
 pio test -e bench -f pwm/test_phase_shift
 pio test -e bench -f pwm/test_burst_mode
 pio test -e bench -f pwm/test_modulation_modes
+pio test -e bench -f pwm/test_switch_convention
 ```
