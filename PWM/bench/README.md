@@ -21,6 +21,7 @@ bench/
       test_frequency/
       test_modulation_modes/
       test_phase_shift/
+      test_resolution/
       test_rise_fall/
       test_switch_convention/
 ```
@@ -73,4 +74,18 @@ pio test -e bench -f pwm/test_phase_shift
 pio test -e bench -f pwm/test_burst_mode
 pio test -e bench -f pwm/test_modulation_modes
 pio test -e bench -f pwm/test_switch_convention
+pio test -e bench -f pwm/test_resolution
 ```
+
+The resolution test checks one `initVariableFrequency` minimum-frequency value per
+CUT initialization, then routes the PWM output through the MUX and checks the
+frequency on the Rigol. To check another prescaler, set one value and
+reset/restart the CUT before running again:
+
+```powershell
+$env:BENCH_RES_FREQ_VALUES="8000 10000 20000 50000 100000"
+pio test -e bench -f pwm/test_resolution
+```
+
+When `BENCH_RES_MIN_FREQ` is not set, the test uses the first
+`BENCH_RES_FREQ_VALUES` entry as the minimal frequency.

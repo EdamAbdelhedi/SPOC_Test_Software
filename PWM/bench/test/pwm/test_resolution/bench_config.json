@@ -1,0 +1,21 @@
+{
+  "name": "pwm_resolution",
+  "python": "python",
+  "script": "../Test_SPIN_API/scripts/test_pwm_resolution.py",
+  "args": [
+    { "flag": "--cut-port", "env": "BENCH_CUT_PORT", "default": "COM22" },
+    { "flag": "--mux-port", "env": "BENCH_MUX_PORT", "default": "COM20" },
+    { "flag": "--all-pwm-pins", "env": "BENCH_RES_ALL_PWM_PINS", "default": "false" },
+    { "flag": "--cut-pin", "env": "BENCH_RES_CUT_PIN", "default": "PA8" },
+    { "flag": "--channel", "env": "BENCH_RES_CHANNEL", "default": "ch1" },
+    { "flag": "--min-freq", "env": "BENCH_RES_MIN_FREQ" },
+    { "flag": "--freq-values", "env": "BENCH_RES_FREQ_VALUES", "default": ["57000"], "multiple": true },
+    { "flag": "--duty", "env": "BENCH_RES_DUTY", "default": "0.50" },
+    { "flag": "--settle-seconds", "env": "BENCH_RES_SETTLE_SECONDS", "default": "0.1" },
+    { "flag": "--averages", "env": "BENCH_RES_AVERAGES", "default": "3" },
+    { "flag": "--trigger-edge-level", "env": "BENCH_RES_TRIGGER_EDGE_LEVEL", "default": "1.5" },
+    { "flag": "--timebase-scale", "env": "BENCH_RES_TIMEBASE_SCALE" },
+    { "flag": "--freq-tol-pct", "env": "BENCH_RES_FREQ_TOL_PCT", "default": "5.0" },
+    { "flag": "--resolution-tol-ps", "env": "BENCH_RES_TOL_PS", "default": "10" }
+  ]
+}

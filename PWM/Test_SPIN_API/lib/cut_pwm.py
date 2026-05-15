@@ -50,6 +50,13 @@ PWM_FIELDS = {
     "E": {"out1": "wE1", "out2": "wE2", "duty": "wEDuty", "phase": "wEPhase_deg", "dead_rise": "wEDeadRise", "dead_fall": "wEDeadFall", "mod": "wEMod", "switch": "wESwitchConv", "period": "rEPeriod"},
     "F": {"out1": "wF1", "out2": "wF2", "duty": "wFDuty", "phase": "wFPhase_deg", "dead_rise": "wFDeadRise", "dead_fall": "wFDeadFall", "mod": "wFMod", "switch": "wFSwitchConv", "period": "rFPeriod"},
 }
+PWM_RESOLUTION_FIELD_CANDIDATES = (
+    "r{unit}ResolutionPs",
+    "r{unit}ResolutionPS",
+    "r{unit}Resolution_ps",
+    "r{unit}ResPs",
+    "r{unit}Res_ps",
+)
 PWM_SOURCES = {
     "PA8": {"unit": "A", "output": 1, "tu": 0},
     "PA9": {"unit": "A", "output": 2, "tu": 0},
@@ -154,6 +161,7 @@ class CutPwmController:
         self.verbose = verbose
         self._serial = None
         self._shell: ThingSetShell | None = None
+        self._resolution_field_by_unit: dict[str, str | None] = {}
 
     def connect(self) -> None:
         self._serial = serial.Serial(
@@ -480,6 +488,28 @@ class CutPwmController:
         target = self._resolve_pin(pin)
         unit_fields = PWM_FIELDS[str(target["unit"])]
         return self._to_int(self._ts_get(shell, f"{CUT_PWM_BASE}/{unit_fields['period']}"))
+
+    def read_resolution_ps(self, pin: str) -> int | None:
+        shell = self._require_shell()
+        target = self._resolve_pin(pin)
+        unit = str(target["unit"])
+        cached_field = self._resolution_field_by_unit.get(unit)
+        if cached_field is not None:
+            return self._to_int(self._ts_get(shell, f"{CUT_PWM_BASE}/{cached_field}"))
+        if unit in self._resolution_field_by_unit:
+            return None
+        for field_template in PWM_RESOLUTION_FIELD_CANDIDATES:
+            field = field_template.format(unit=unit)
+            path = f"{CUT_PWM_BASE}/{field}"
+            try:
+                value = self._to_int(self._ts_get(shell, path))
+            except RuntimeError:
+                continue
+            if value is not None:
+                self._resolution_field_by_unit[unit] = field
+                return value
+        self._resolution_field_by_unit[unit] = None
+        return None
 
     def _resolve_pin(self, pin: str) -> dict[str, int | str]:
         normalized = pin.strip().upper()
