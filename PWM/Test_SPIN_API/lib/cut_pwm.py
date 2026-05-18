@@ -29,6 +29,7 @@ PWM_ACT_SET_BURST = 24
 PWM_ACT_START_BURST = 25
 PWM_ACT_STOP_BURST = 26
 PWM_ACT_DEINIT_BURST = 27
+PWM_ACT_DEINIT = 28
 
 LFT_ALIGNED = 0
 UPDWN = 16
@@ -468,6 +469,10 @@ class CutPwmController:
     def deinit_burst_mode(self, pin: str) -> None:
         pwm_source = self._resolve_pin(pin)
         self._spin_pwm_action(int(pwm_source["tu"]), PWM_ACT_DEINIT_BURST)
+
+    def deinit(self, pin: str) -> None:
+        pwm_source = self._resolve_pin(pin)
+        self._spin_pwm_action(int(pwm_source["tu"]), PWM_ACT_DEINIT)
 
     def read_state(self) -> CutPwmState:
         shell = self._require_shell()

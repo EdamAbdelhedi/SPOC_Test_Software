@@ -182,6 +182,14 @@ def print_route_diagnostics(cut: CutPwmController, mux: MuxController, channel: 
     )
 
 
+def try_deinit_cut(cut: CutPwmController, cut_pin: str, *, context: str) -> None:
+    try:
+        cut.deinit(cut_pin)
+        print(f"CUT deinit complete ({context}).")
+    except Exception as exc:
+        print(f"CUT deinit skipped ({context}): {exc}")
+
+
 def measure_resolution_step(
     scope: Oscilloscope,
     cut: CutPwmController,
@@ -280,6 +288,7 @@ def run_resolution_case(
         f"Initial state: preparing one PWM route on {cut_pin} and {channel}. "
         f"min_freq={min_freq_hz}Hz, duty={clamp_pwm_duty(duty) * 100.0:.1f}%"
     )
+    try_deinit_cut(cut, cut_pin, context="before resolution case")
     mux.route(channel, cut_pin)
     print_route_diagnostics(cut, mux, channel, cut_pin)
 
@@ -372,6 +381,7 @@ def main() -> int:
                     cut.disable(pin=cut_pin, freq_hz=freq_hz, min_freq_hz=min_freq_hz, duty=args.duty)
                 except Exception:
                     pass
+                try_deinit_cut(cut, cut_pin, context="after resolution case")
                 try:
                     mux.disable_route(channel, cut_pin)
                 except Exception:
